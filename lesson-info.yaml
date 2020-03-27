@@ -1,0 +1,8 @@
+type: framework
+custom_name: Text Editor
+content:
+- A window to editing
+- Saved and loaded
+- Menu, please!
+- Searching
+current_task: 1
