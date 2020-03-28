@@ -1,17 +1,15 @@
 import editor.TextEditor;
-import org.assertj.swing.fixture.JButtonFixture;
-import org.assertj.swing.fixture.JMenuItemFixture;
-import org.assertj.swing.fixture.JScrollPaneFixture;
-import org.assertj.swing.fixture.JTextComponentFixture;
+import org.assertj.swing.fixture.*;
 import org.hyperskill.hstest.v6.stage.SwingTest;
 import org.hyperskill.hstest.v6.testcase.CheckResult;
 import org.hyperskill.hstest.v6.testcase.TestCase;
 import org.junit.After;
 
-import java.io.IOException;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 
@@ -34,24 +32,40 @@ public class EditorTest extends SwingTest<TestClue> {
         super(new TextEditor());
     }
 
+    private String dir = System.getProperty("user.dir") + File.separator;
+    private File fileDir = new File(dir);
+
     private JTextComponentFixture textArea;
-    private JTextComponentFixture filenameField;
+    private JTextComponentFixture searchField;
     private JButtonFixture saveButton;
-    private JButtonFixture loadButton;
+    private JButtonFixture openButton;
+    private JButtonFixture startSearchButton;
+    private JButtonFixture previousMatchButton;
+    private JButtonFixture nextMatchButton;
+    private JCheckBoxFixture useRegExCheckbox;
     private JScrollPaneFixture scrollPane;
     private JMenuItemFixture menuFile;
-    private JMenuItemFixture menuLoad;
+    private JMenuItemFixture menuSearch;
+    private JMenuItemFixture menuOpen;
     private JMenuItemFixture menuSave;
     private JMenuItemFixture menuExit;
+    private JMenuItemFixture menuStartSearch;
+    private JMenuItemFixture menuPreviousMatch;
+    private JMenuItemFixture menuNextMatch;
+    private JMenuItemFixture menuUseRegExp;
+    private JFileChooserFixture fileChooser;
 
     String filename1 = "SomeFile.txt";
     String filename2 = "AnotherFile.txt";
     String noExistFile = "FileDoesNotExist";
 
+    String searchText = "Sonnet";
+    String regExSearchText = "[fr]uel";
+
     String textToSave1 = "Basic text editor\nType here too\nHere also\n\n";
-    String textToSave2 = "                Sonnet I\n" +
-        "     \n" +
-        "     \n" +
+    String textToSave2 = "          Sonnet I\n" +
+        "\n" +
+        "\n" +
         "FROM fairest creatures we desire increase,\n" +
         "That thereby beauty's rose might never die,\n" +
         "But as the riper should by time decease,\n" +
@@ -67,9 +81,9 @@ public class EditorTest extends SwingTest<TestClue> {
         "Pity the world, or else this glutton be,\n" +
         "To eat the world's due, by the grave and thee.\n" +
         "\n" +
-        "                 Sonnet II                   \n" +
-        "\n" +
-        "\n" +
+        " Sonnet II\n" +
+        "       \n" +
+        "         \n" +
         "When forty winters shall beseige thy brow,\n" +
         "And dig deep trenches in thy beauty's field,\n" +
         "Thy youth's proud livery, so gazed on now,\n" +
@@ -83,7 +97,54 @@ public class EditorTest extends SwingTest<TestClue> {
         "Shall sum my count and make my old excuse,'\n" +
         "Proving his beauty by succession thine!\n" +
         "This were to be new made when thou art old,\n" +
-        "And see thy blood warm when thou feel'st it cold.";
+        "And see thy blood warm when thou feel'st it cold.\n" +
+        "\n" +
+        "Sonnet III\n" +
+        "\n" +
+        "\n" +
+        "Look in thy glass, and tell the face thou viewest\n" +
+        "Now is the time that face should form another;\n" +
+        "Whose fresh repair if now thou not renewest,\n" +
+        "Thou dost beguile the world, unbless some mother.\n" +
+        "For where is she so fair whose unear'd womb\n" +
+        "Disdains the tillage of thy husbandry?\n" +
+        "Or who is he so fond will be the tomb\n" +
+        "Of his self-love, to stop posterity?\n" +
+        "Thou art thy mother's glass, and she in thee\n" +
+        "Calls back the lovely April of her prime:\n" +
+        "So thou through windows of thine age shall see\n" +
+        "Despite of wrinkles this thy golden time.\n" +
+        "But if thou live, remember'd not to be,\n" +
+        "Die single, and thine image dies with thee.\n" +
+        "\n" +
+        "Sonnet IV\n" +
+        "\n" +
+        "\n" +
+        "Unthrifty loveliness, why dost thou spend\n" +
+        "Upon thyself thy beauty's legacy?\n" +
+        "Nature's bequest gives nothing but doth lend,\n" +
+        "And being frank she lends to those are free.\n" +
+        "Then, beauteous niggard, why dost thou abuse\n" +
+        "The bounteous largess given thee to give?\n" +
+        "Profitless usurer, why dost thou use\n" +
+        "So great a sum of sums, yet canst not live?\n" +
+        "For having traffic with thyself alone,\n" +
+        "Thou of thyself thy sweet self dost deceive.\n" +
+        "Then how, when nature calls thee to be gone,\n" +
+        "What acceptable audit canst thou leave?\n" +
+        "Thy unused beauty must be tomb'd with thee,\n" +
+        "Which, used, lives th' executor to be.";
+
+    public void fileAction() {
+        if(!fileChooser.target().isVisible()) {
+            throw new AssertionError();
+        }
+        frame.setVisible(false);
+        fileChooser.setCurrentDirectory(fileDir);
+        fileChooser.fileNameTextBox().setText(searchField.text());
+        fileChooser.approve();
+        frame.setVisible(true);
+    }
 
 
     @Override
@@ -111,10 +172,10 @@ public class EditorTest extends SwingTest<TestClue> {
                 }))),
 
             new TestCase<TestClue>().setAttach(new TestClue(
-                "There is no text component with name FilenameField",
+                "There is no text component with name SearchField",
                 () -> checkExistence(() -> {
-                    filenameField = window.textBox("FilenameField");
-                    return filenameField;
+                    searchField = window.textBox("SearchField");
+                    return searchField;
                 }))),
 
             new TestCase<TestClue>().setAttach(new TestClue(
@@ -125,10 +186,38 @@ public class EditorTest extends SwingTest<TestClue> {
                 }))),
 
             new TestCase<TestClue>().setAttach(new TestClue(
-                "There is no button with name LoadButton",
+                "There is no button with name OpenButton",
                 () -> checkExistence(() -> {
-                    loadButton = window.button("LoadButton");
-                    return loadButton;
+                    openButton = window.button("OpenButton");
+                    return openButton;
+                }))),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "There is no button with name StartSearchButton",
+                () -> checkExistence(() -> {
+                    startSearchButton = window.button("StartSearchButton");
+                    return startSearchButton;
+                }))),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "There is no button with name PreviousMatchButton",
+                () -> checkExistence(() -> {
+                    previousMatchButton = window.button("PreviousMatchButton");
+                    return previousMatchButton;
+                }))),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "There is no button with name NextMatchButton",
+                () -> checkExistence(() -> {
+                    nextMatchButton = window.button("NextMatchButton");
+                    return nextMatchButton;
+                }))),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "There is no button with name UseRegExCheckbox",
+                () -> checkExistence(() -> {
+                    useRegExCheckbox = window.checkBox("UseRegExCheckbox");
+                    return useRegExCheckbox;
                 }))),
 
             new TestCase<TestClue>().setAttach(new TestClue(
@@ -146,10 +235,17 @@ public class EditorTest extends SwingTest<TestClue> {
                 }))),
 
             new TestCase<TestClue>().setAttach(new TestClue(
-                "There is no menu option with name MenuLoad",
+                "There is no menu option with name MenuSearch",
                 () -> checkExistence(() -> {
-                    menuLoad = window.menuItem("MenuLoad");
-                    return menuLoad;
+                    menuSearch = window.menuItem("MenuSearch");
+                    return menuSearch;
+                }))),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "There is no menu option with name MenuOpen",
+                () -> checkExistence(() -> {
+                    menuOpen = window.menuItem("MenuOpen");
+                    return menuOpen;
                 }))),
 
             new TestCase<TestClue>().setAttach(new TestClue(
@@ -166,9 +262,43 @@ public class EditorTest extends SwingTest<TestClue> {
                     return menuExit;
                 }))),
 
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "There is no menu option with name MenuStartSearch",
+                () -> checkExistence(() -> {
+                    menuStartSearch = window.menuItem("MenuStartSearch");
+                    return menuStartSearch;
+                }))),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "There is no menu option with name MenuPreviousMatch",
+                () -> checkExistence(() -> {
+                    menuPreviousMatch = window.menuItem("MenuPreviousMatch");
+                    return menuPreviousMatch;
+                }))),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "There is no menu option with name MenuNextMatch",
+                () -> checkExistence(() -> {
+                    menuNextMatch = window.menuItem("MenuNextMatch");
+                    return menuNextMatch;
+                }))),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "There is no menu option with name MenuUseRegExp",
+                () -> checkExistence(() -> {
+                    menuUseRegExp = window.menuItem("MenuUseRegExp");
+                    return menuUseRegExp;
+                }))),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "There is no component with name FileChooser",
+                () -> checkExistence(() -> {
+                    fileChooser = window.fileChooser("FileChooser");
+                    return fileChooser;
+                }))),
 
 
-            // logic tests
+            // ui tests
 
             new TestCase<TestClue>().setAttach(new TestClue(
                 "TextArea should be editable",
@@ -185,9 +315,9 @@ public class EditorTest extends SwingTest<TestClue> {
                 })),
 
             new TestCase<TestClue>().setAttach(new TestClue(
-                "FilenameField should be empty at the start of the program",
+                "SearchField should be empty at the start of the program",
                 () -> {
-                    filenameField.requireEmpty();
+                    searchField.requireEmpty();
                     return true;
                 })),
 
@@ -196,80 +326,71 @@ public class EditorTest extends SwingTest<TestClue> {
                 () -> saveButton.isEnabled())),
 
             new TestCase<TestClue>().setAttach(new TestClue(
-                "LoadButton should be enabled for clicking",
-                () -> loadButton.isEnabled())),
+                "OpenButton should be enabled for clicking",
+                () -> openButton.isEnabled())),
 
             new TestCase<TestClue>().setAttach(new TestClue(
-                "Can't enter multiline text in TextArea.",
-                () -> {
-                    textArea.setText(textToSave1);
-                    textArea.requireText(textToSave1);
-                    textArea.setText("");
-                    textArea.setText(textToSave2);
-                    textArea.requireText(textToSave2);
-                    return true;
-                })),
+                "StartSearchButton should be enabled for clicking",
+                () -> startSearchButton.isEnabled())),
 
             new TestCase<TestClue>().setAttach(new TestClue(
-                "Can enter multiline text in FilenameField, but shouldn't",
-                () -> {
-                    String text = textToSave1;
-                    filenameField.setText(text);
-                    filenameField.requireText(text.replace("\n", " "));
-                    filenameField.setText("");
-                    return true;
-                })),
+                "NextMatchButton should be enabled for clicking",
+                () -> nextMatchButton.isEnabled())),
 
             new TestCase<TestClue>().setAttach(new TestClue(
-                "Text in FilenameField and in TextArea " +
-                    "should stay the same after saving file",
+                "PreviousMatchButton should be enabled for clicking",
+                () -> previousMatchButton.isEnabled())),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "MenuLoad should be enabled for clicking",
+                () -> menuOpen.isEnabled())),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "MenuSave should be enabled for clicking",
+                () -> menuSave.isEnabled())),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "MenuFile should be enabled for clicking",
+                () -> menuFile.isEnabled())),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "MenuExit should be enabled for clicking",
+                () -> menuExit.isEnabled())),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "MenuStartSearch should be enabled for clicking",
+                () -> menuStartSearch.isEnabled())),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "MenuPreviousMatch should be enabled for clicking",
+                () -> menuPreviousMatch.isEnabled())),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "MenuNextMatch should be enabled for clicking",
+                () -> menuNextMatch.isEnabled())),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "MenuUseRegExp should be enabled for clicking",
+                () -> menuUseRegExp.isEnabled())),
+
+
+            // logic tests
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "FileChooser doesn't appear on the second " +
+                    "press on SaveButton but should appear every time",
                 () -> {
-                    filenameField.setText(filename1);
+                    searchField.setText(filename1);
                     textArea.setText(textToSave1);
 
                     saveButton.click();
 
-                    filenameField.requireText(filename1);
-                    textArea.requireText(textToSave1);
-
-                    return true;
-                })),
-
-            new TestCase<TestClue>().setAttach(new TestClue(
-                "Text in FilenameField and in TextArea " +
-                    "should stay the same after saving file",
-                () -> {
-                    String text = textToSave2;
-                    String file = filename2;
-
-                    filenameField.setText(file);
-                    textArea.setText(text);
-
-                    saveButton.click();
-
-                    filenameField.requireText(file);
-                    textArea.requireText(text);
-
-                    filenameField.setText("");
-                    textArea.setText("");
-
-                    return true;
-                })),
-
-            new TestCase<TestClue>().setAttach(new TestClue(
-                "Text in FilenameField stay the same after loading file",
-                () -> {
-                    String file = filename1;
-
-                    filenameField.setText(file);
-                    textArea.setText("");
-
-                    loadButton.click();
-
-                    filenameField.requireText(file);
-
-                    filenameField.setText("");
-                    textArea.setText("");
+                    try {
+                        fileAction();
+                    }
+                    catch (IllegalStateException ex) {
+                        return false;
+                    }
 
                     return true;
                 })),
@@ -285,19 +406,21 @@ public class EditorTest extends SwingTest<TestClue> {
                         String text = texts[i];
                         String file = files[i];
 
-                        filenameField.setText("");
+                        searchField.setText("");
                         textArea.setText("");
 
-                        filenameField.setText(file);
+                        searchField.setText(file);
                         textArea.setText(text);
 
                         saveButton.click();
+                        fileAction();
 
-                        filenameField.setText("");
+                        searchField.setText("");
                         textArea.setText("");
 
-                        filenameField.setText(file);
-                        loadButton.click();
+                        searchField.setText(file);
+                        openButton.click();
+                        fileAction();
 
                         textArea.requireText(text);
                     }
@@ -311,9 +434,10 @@ public class EditorTest extends SwingTest<TestClue> {
                 () -> {
 
                     textArea.setText(textToSave1);
-                    filenameField.setText(noExistFile);
+                    searchField.setText(noExistFile);
 
-                    loadButton.click();
+                    openButton.click();
+                    fileAction();
                     textArea.requireText("");
 
                     return true;
@@ -323,11 +447,13 @@ public class EditorTest extends SwingTest<TestClue> {
                 "TextArea should correctly save and load an empty file",
                 () -> {
                     textArea.setText("");
-                    filenameField.setText(filename1);
+                    searchField.setText(filename1);
 
                     saveButton.click();
+                    fileAction();
                     textArea.setText(textToSave2);
-                    loadButton.click();
+                    openButton.click();
+                    fileAction();
                     textArea.requireText("");
 
                     return true;
@@ -335,90 +461,7 @@ public class EditorTest extends SwingTest<TestClue> {
 
 
 
-            // menu-related tests
-
-            new TestCase<TestClue>().setAttach(new TestClue(
-                "MenuLoad should be enabled for clicking",
-                () -> {
-                    menuLoad.requireEnabled();
-                    return true;
-                })),
-
-            new TestCase<TestClue>().setAttach(new TestClue(
-                "MenuSave should be enabled for clicking",
-                () -> {
-                    menuSave.requireEnabled();
-                    return true;
-                })),
-
-            new TestCase<TestClue>().setAttach(new TestClue(
-                "MenuFile should be enabled for clicking",
-                () -> {
-                    menuFile.requireEnabled();
-                    return true;
-                })),
-
-            new TestCase<TestClue>().setAttach(new TestClue(
-                "MenuExit should be enabled for clicking",
-                () -> {
-                    menuExit.requireEnabled();
-                    return true;
-                })),
-
-            new TestCase<TestClue>().setAttach(new TestClue(
-                "Text in FilenameField and in TextArea " +
-                    "should stay the same after saving file using MenuSave",
-                () -> {
-                    filenameField.setText(filename1);
-                    textArea.setText(textToSave1);
-
-                    menuSave.click();
-
-                    filenameField.requireText(filename1);
-                    textArea.requireText(textToSave1);
-
-                    return true;
-                })),
-
-            new TestCase<TestClue>().setAttach(new TestClue(
-                "Text in FilenameField and in TextArea " +
-                    "should stay the same after saving file using MenuSave",
-                () -> {
-                    String text = textToSave2;
-                    String file = filename2;
-
-                    filenameField.setText(file);
-                    textArea.setText(text);
-
-                    menuSave.click();
-
-                    filenameField.requireText(file);
-                    textArea.requireText(text);
-
-                    filenameField.setText("");
-                    textArea.setText("");
-
-                    return true;
-                })),
-
-            new TestCase<TestClue>().setAttach(new TestClue(
-                "Text in FilenameField stay " +
-                    "the same after loading file using MenuLoad",
-                () -> {
-                    String file = filename1;
-
-                    filenameField.setText(file);
-                    textArea.setText("");
-
-                    menuLoad.click();
-
-                    filenameField.requireText(file);
-
-                    filenameField.setText("");
-                    textArea.setText("");
-
-                    return true;
-                })),
+            // menu-related tests for save and load
 
             new TestCase<TestClue>().setAttach(new TestClue(
                 "Text should be the same after saving " +
@@ -432,19 +475,21 @@ public class EditorTest extends SwingTest<TestClue> {
                         String text = texts[i];
                         String file = files[i];
 
-                        filenameField.setText("");
+                        searchField.setText("");
                         textArea.setText("");
 
-                        filenameField.setText(file);
+                        searchField.setText(file);
                         textArea.setText(text);
 
                         menuSave.click();
+                        fileAction();
 
-                        filenameField.setText("");
+                        searchField.setText("");
                         textArea.setText("");
 
-                        filenameField.setText(file);
-                        menuLoad.click();
+                        searchField.setText(file);
+                        menuOpen.click();
+                        fileAction();
 
                         textArea.requireText(text);
                     }
@@ -458,25 +503,243 @@ public class EditorTest extends SwingTest<TestClue> {
                 () -> {
 
                     textArea.setText(textToSave1);
-                    filenameField.setText(noExistFile);
+                    searchField.setText(noExistFile);
 
-                    menuLoad.click();
+                    menuOpen.click();
+                    fileAction();
                     textArea.requireText("");
 
                     return true;
                 })),
 
             new TestCase<TestClue>().setAttach(new TestClue(
-                "TextArea should correctly save and load an empty file using menu",
+                "TextArea should correctly save " +
+                    "and load an empty file using menu",
                 () -> {
                     textArea.setText("");
-                    filenameField.setText(filename1);
+                    searchField.setText(filename1);
 
                     menuSave.click();
+                    fileAction();
                     textArea.setText(textToSave2);
-                    menuLoad.click();
+                    menuOpen.click();
+                    fileAction();
                     textArea.requireText("");
+
                     return true;
+                })),
+
+
+            // search related tests
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "After clicking SearchButton should " +
+                    "be selected founded text",
+                () -> {
+                    searchField.setText(searchText);
+                    textArea.setText(textToSave2);
+                    startSearchButton.click();
+
+                    return Objects.equals(
+                        textArea.target().getSelectedText(), searchText);
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "After clicking NextMatchButton should " +
+                    "be selected founded text",
+                () -> {
+                    searchField.setText(searchText);
+                    textArea.setText(textToSave2);
+                    startSearchButton.click();
+                    nextMatchButton.click();
+
+                    return Objects.equals(
+                        textArea.target().getSelectedText(), searchText);
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "After clicking PreviousMatchButton should " +
+                    "be selected founded text",
+                () -> {
+                    searchField.setText(searchText);
+                    textArea.setText(textToSave2);
+                    startSearchButton.click();
+                    previousMatchButton.click();
+
+                    return Objects.equals(
+                        textArea.target().getSelectedText(), searchText);
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "After clicking MenuStartSearch should " +
+                    "be selected founded text",
+                () -> {
+                    searchField.setText(searchText);
+                    textArea.setText(textToSave2);
+                    menuStartSearch.click();
+
+                    return Objects.equals(
+                        textArea.target().getSelectedText(), searchText);
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "After clicking MenuNextMatch should " +
+                    "be selected founded text",
+                () -> {
+                    searchField.setText(searchText);
+                    textArea.setText(textToSave2);
+                    startSearchButton.click();
+                    menuNextMatch.click();
+
+                    return Objects.equals(
+                        textArea.target().getSelectedText(), searchText);
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "After clicking MenuPreviousMatch should " +
+                    "be selected founded text",
+                () -> {
+                    searchField.setText(searchText);
+                    textArea.setText(textToSave2);
+                    startSearchButton.click();
+                    menuPreviousMatch.click();
+
+                    return Objects.equals(
+                        textArea.target().getSelectedText(), searchText);
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "Wrong caret position after clicking SearchButton " +
+                    "(should be at the end of founded text)",
+                () -> {
+                    searchField.setText(searchText);
+                    textArea.setText(textToSave2);
+
+                    startSearchButton.click();
+
+                    // confirmed with working program AND provided text
+                    return textArea.target().getCaretPosition() == 16;
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "Wrong caret position after clicking SearchButton " +
+                    "(should be at the end of founded text)",
+                () -> {
+                    searchField.setText(searchText);
+                    textArea.setText(textToSave2);
+
+                    menuStartSearch.click();
+
+                    // confirmed with working program AND provided text
+                    return textArea.target().getCaretPosition() == 16;
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "Wrong caret position after clicking NextMatchButton",
+                () -> {
+                    searchField.setText(searchText);
+                    textArea.setText(textToSave2);
+
+                    startSearchButton.click();
+                    nextMatchButton.click();
+
+                    // confirmed with working program
+                    return textArea.target().getCaretPosition() == 640;
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "Wrong caret position after clicking MenuNextMatch",
+                () -> {
+                    searchField.setText(searchText);
+                    textArea.setText(textToSave2);
+
+                    menuStartSearch.click();
+                    menuNextMatch.click();
+
+                    // confirmed with working program
+                    return textArea.target().getCaretPosition() == 640;
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "Wrong caret position after clicking PreviousMatchButton",
+                () -> {
+                    searchField.setText(searchText);
+                    textArea.setText(textToSave2);
+
+                    startSearchButton.click();
+                    previousMatchButton.click();
+
+                    // confirmed with working program
+                    return textArea.target().getCaretPosition() == 1921;
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "Wrong caret position after clicking MenuPreviousMatch",
+                () -> {
+                    searchField.setText(searchText);
+                    textArea.setText(textToSave2);
+
+                    startSearchButton.click();
+                    menuPreviousMatch.click();
+
+                    // confirmed with working program
+                    return textArea.target().getCaretPosition() == 1921;
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "Checkbox is not clickable",
+                () -> {
+                    useRegExCheckbox.check(true);
+                    return useRegExCheckbox.target().isSelected();
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "MenuUseRegExp does't work",
+                () -> {
+                    useRegExCheckbox.check(false);
+                    menuUseRegExp.click();
+                    return useRegExCheckbox.target().isSelected();
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "Wrong caret position after clicking SearchButton " +
+                    "using regular expression",
+                () -> {
+                    searchField.setText(regExSearchText);
+                    textArea.setText(textToSave2);
+
+                    startSearchButton.click();
+
+                    // confirmed with working program AND provided text
+                    return textArea.target().getCaretPosition() == 288;
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "Wrong caret position after clicking NextSearchButton " +
+                    "using regular expression",
+                () -> {
+                    searchField.setText(regExSearchText);
+                    textArea.setText(textToSave2);
+
+                    menuStartSearch.click();
+                    nextMatchButton.click();
+
+                    // confirmed with working program AND provided text
+                    return textArea.target().getCaretPosition() == 372;
+                })),
+
+            new TestCase<TestClue>().setAttach(new TestClue(
+                "Wrong caret position after clicking PreviousMatchButton " +
+                    "using regular expression",
+                () -> {
+                    searchField.setText(regExSearchText);
+                    textArea.setText(textToSave2);
+
+                    menuStartSearch.click();
+                    previousMatchButton.click();
+
+                    // confirmed with working program AND provided text
+                    return textArea.target().getCaretPosition() == 372;
                 }))
         );
     }
@@ -494,10 +757,10 @@ public class EditorTest extends SwingTest<TestClue> {
     @After
     public void deleteFiles() {
         try {
-            Files.delete(Paths.get(filename1));
-            Files.delete(Paths.get(filename2));
+            Files.deleteIfExists(Paths.get(filename1));
+            Files.deleteIfExists(Paths.get(filename2));
         }
-        catch (IOException ex) {
+        catch (Exception ex) {
             ex.printStackTrace();
         }
     }
